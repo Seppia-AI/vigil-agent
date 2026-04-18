@@ -12,6 +12,7 @@
 //	vigil-agent --check-config  # validate config and exit
 //	vigil-agent --config PATH   # use a non-default config file
 //	vigil-agent --once          # scrape once, print JSON batch, exit
+//	vigil-agent --once --send   # scrape once, POST to ingest, print server reply, exit
 //	vigil-agent --dry-run       # daemon, but log batches instead of POSTing
 //	vigil-agent --insecure      # DEV ONLY: skip TLS verification
 //	vigil-agent --log-format=text|json  # default text
@@ -43,6 +44,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -71,6 +73,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		showVersion   = fs.Bool("version", false, "print version information and exit")
 		checkConfig   = fs.Bool("check-config", false, "load and validate config, then exit")
 		once          = fs.Bool("once", false, "run the collectors once, print the JSON batch to stdout, exit")
+		send          = fs.Bool("send", false, "with --once: also POST the batch to the ingest URL and print the server's reply (verify install)")
 		dryRun        = fs.Bool("dry-run", false, "run the daemon but log batches to stderr instead of POSTing them")
 		insecure      = fs.Bool("insecure", false, "DEV ONLY: skip TLS certificate verification when POSTing to the ingest URL")
 		configPath    = fs.String("config", "", "path to YAML config file (default: "+config.DefaultConfigPath+")")
@@ -138,7 +141,16 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if *once {
-		return runOnce(*configPath, stdout, stderr)
+		return runOnce(*configPath, *send, *insecure, stdout, stderr)
+	}
+
+	if *send {
+		// --send is only meaningful as a modifier on --once. Reject it
+		// loudly here rather than silently ignoring it — operators
+		// would otherwise wonder why their `vigil-agent --send` (no
+		// --once) didn't ship anything.
+		fmt.Fprintln(stderr, "flag --send requires --once (e.g. `vigil-agent --once --send`)")
+		return exitcode.Usage
 	}
 
 	return runDaemon(*configPath, *dryRun, *insecure, *metricsAddr, *drainTimeout, *noUpdateCheck, logger, stderr)
@@ -326,9 +338,15 @@ func (a schedStatsAdapter) StatsSnapshot() observ.StatsSnapshot {
 
 // runOnce is the body of `vigil-agent --once`. It loads config (so static
 // labels and the metrics_allowlist are honoured), runs every collector
-// exactly once, and prints the resulting Batch as pretty-printed JSON to
-// stdout — i.e. EXACTLY the bytes the daemon would POST, minus HTTP
-// framing.
+// exactly once, and either:
+//
+//   - prints the resulting Batch as pretty-printed JSON to stdout — i.e.
+//     EXACTLY the bytes the daemon would POST, minus HTTP framing
+//     (default `--once` behaviour); or
+//   - POSTs the batch to the configured ingest URL and prints a one-shot
+//     human summary of the server's reply to stdout (`--once --send`).
+//     This is the post-install "verify the agent can actually reach the
+//     ingest endpoint" path that the UI surfaces as a copy-paste snippet.
 //
 // We deliberately use the cpu collector twice with a short delay between
 // scrapes: gopsutil's cpu.Percent(0, *) needs a baseline call before it
@@ -339,8 +357,16 @@ func (a schedStatsAdapter) StatsSnapshot() observ.StatsSnapshot {
 // Per-collector errors are reported on stderr but do NOT change the exit
 // code unless EVERY collector failed (in which case the batch would be
 // empty and we surface a Runtime error). Partial scrapes are normal.
-func runOnce(path string, stdout, stderr io.Writer) int {
-	cfg, _, err := config.LoadWith(path, config.LoadOptions{RequireToken: false})
+//
+// `send` requires a token (we POST to /vigil/vitals/<token>); `insecure`
+// skips TLS verification on the POST (DEV ONLY, mirrors the daemon flag).
+func runOnce(path string, send, insecure bool, stdout, stderr io.Writer) int {
+	// When --send is on we're about to actually hit the network with
+	// the token, so a missing/empty token is a hard config error
+	// (same posture as the daemon). When --send is off we tolerate a
+	// missing token because users legitimately run `--once` to inspect
+	// the JSON shape before they've provisioned a probe.
+	cfg, _, err := config.LoadWith(path, config.LoadOptions{RequireToken: send})
 	if err != nil {
 		fmt.Fprintf(stderr, "config error: %v\n", err)
 		return exitcode.Config
@@ -373,11 +399,94 @@ func runOnce(path string, stdout, stderr io.Writer) int {
 		return exitcode.Runtime
 	}
 
+	if send {
+		return runOnceSend(ctx, cfg, insecure, batch, errs, stdout, stderr)
+	}
+
 	enc := json.NewEncoder(stdout)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(batch); err != nil {
 		fmt.Fprintf(stderr, "encode batch: %v\n", err)
 		return exitcode.Runtime
+	}
+
+	if msg := collector.FormatErrors(errs); msg != "" {
+		fmt.Fprintln(stderr, "collector warnings (non-fatal):")
+		fmt.Fprintln(stderr, msg)
+	}
+	return exitcode.OK
+}
+
+// runOnceSend is the `--once --send` tail: it builds the same HTTPSink
+// the daemon would, POSTs the already-collected batch, and prints a
+// human-readable summary of the server's reply. Exit codes mirror the
+// daemon's: 0 on success, Config on fatal (404 / token revoked), Runtime
+// on anything else (network blip, 5xx, 429). The deliberate goal is
+// "the operator can run this immediately after the install one-liner
+// and know within ~1s whether the agent → server path works".
+func runOnceSend(
+	ctx context.Context,
+	cfg config.Config,
+	insecure bool,
+	batch collector.Batch,
+	errs []collector.Error,
+	stdout, stderr io.Writer,
+) int {
+	// Logger goes to stderr at WARN — quiet on the happy path, but
+	// the operator still sees `event=ingest.server_drop` if the
+	// server stripped/rejected anything.
+	verifyLogger := observ.NewLogger(stderr, observ.LogFormatText, slog.LevelWarn, version.Version)
+
+	sink, err := ingest.New(ingest.Options{
+		IngestURL:    cfg.IngestURL,
+		Token:        cfg.Token,
+		Insecure:     insecure,
+		Logger:       verifyLogger,
+		AgentVersion: version.Version,
+	})
+	if err != nil {
+		fmt.Fprintf(stderr, "ingest sink: %v\n", err)
+		return exitcode.Config
+	}
+
+	// Print the destination with the token redacted — the URL is
+	// otherwise safe to log and useful for the operator to confirm
+	// they're hitting the production ingest and not a stale dev URL.
+	fmt.Fprintf(stderr, "POST %s/vigil/vitals/<token>  (samples: %d)\n",
+		strings.TrimRight(cfg.IngestURL, "/"), len(batch.Metrics),
+	)
+
+	result, sendErr := sink.Send(ctx, batch)
+	if sendErr != nil {
+		// Same error mapping as the daemon's runErr handler. Fatal
+		// (token revoked) → Config; everything else (network, 5xx,
+		// 429) → Runtime. We don't auto-retry from --once --send;
+		// if it's transient, the operator re-runs the command.
+		if errors.Is(sendErr, scheduler.ErrFatal) {
+			fmt.Fprintf(stderr, "verify FAILED: %v\n", sendErr)
+			return exitcode.Config
+		}
+		fmt.Fprintf(stderr, "verify FAILED: %v\n", sendErr)
+		return exitcode.Runtime
+	}
+
+	// Success path. Print a compact, copy-friendly summary to stdout.
+	// Stderr already carries any ingest.server_drop warnings from the
+	// sink logger so we don't duplicate them here.
+	fmt.Fprintln(stdout, "verify OK — server accepted the batch")
+	fmt.Fprintf(stdout, "  samples_sent:        %d\n", len(batch.Metrics))
+	fmt.Fprintf(stdout, "  samples_accepted:    %d\n", result.Count)
+	if result.DroppedQuota > 0 {
+		fmt.Fprintf(stdout, "  dropped_quota:       %d   (workspace per-minute cap)\n", result.DroppedQuota)
+	}
+	if result.DroppedUnsupported > 0 {
+		fmt.Fprintf(stdout, "  dropped_unsupported: %d   (custom metrics not in your plan's allowlist)\n", result.DroppedUnsupported)
+	}
+	if result.DroppedCardinality > 0 {
+		fmt.Fprintf(stdout, "  dropped_cardinality: %d   (per-probe series cap hit)\n", result.DroppedCardinality)
+	}
+	if result.StrippedLabels > 0 {
+		fmt.Fprintf(stdout, "  stripped_labels:     %d   (high-cardinality keys removed)\n", result.StrippedLabels)
 	}
 
 	if msg := collector.FormatErrors(errs); msg != "" {

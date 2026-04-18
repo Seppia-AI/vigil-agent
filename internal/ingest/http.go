@@ -321,7 +321,13 @@ func (h *HTTPSink) handleOK(body []byte) (scheduler.SendResult, error) {
 			slog.Int("stripped_labels", ir.StrippedLabels),
 		)
 	}
-	return scheduler.SendResult{DroppedQuota: ir.DroppedQuota}, nil
+	return scheduler.SendResult{
+		Count:              ir.Count,
+		DroppedQuota:       ir.DroppedQuota,
+		DroppedUnsupported: ir.DroppedUnsupported,
+		DroppedCardinality: ir.DroppedCardinality,
+		StrippedLabels:     ir.StrippedLabels,
+	}, nil
 }
 
 // handleTooMany parses Retry-After from a 429 response and returns a

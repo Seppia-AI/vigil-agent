@@ -50,13 +50,40 @@ type Sink interface {
 // scheduler can act on server-side signals that aren't errors. A "result"
 // struct rather than an extra return argument leaves room to grow
 // without changing the Sink interface signature.
+//
+// The scheduler itself only consumes DroppedQuota; the other fields
+// are populated by HTTPSink for callers that want to surface the full
+// server breakdown (today: `vigil-agent --once --send`).
 type SendResult struct {
+	// Count is the number of samples the server reported as accepted
+	// (i.e. stored). Always <= the number of samples in the batch we
+	// sent; the difference is captured in the Dropped* / Stripped*
+	// fields below.
+	Count int
+
 	// DroppedQuota is the number of samples the server dropped because
 	// the per-minute sample cap was exceeded. Non-zero means "slow
 	// down" — the scheduler halves
 	// the effective scrape rate for one minute so the backlog has
 	// time to clear and the agent doesn't hammer against the cap.
 	DroppedQuota int
+
+	// DroppedUnsupported is the number of samples the server dropped
+	// because the metric name is not in its allowlist (e.g. a custom
+	// metric name on a plan that doesn't permit them). Informational
+	// only from the scheduler's perspective; the verify path prints it.
+	DroppedUnsupported int
+
+	// DroppedCardinality is the number of samples the server dropped
+	// because the per-probe series-cardinality cap was hit. Informational
+	// only from the scheduler's perspective.
+	DroppedCardinality int
+
+	// StrippedLabels is the number of label keys the server removed
+	// from accepted samples (high-cardinality keys like request_id).
+	// The samples themselves were stored; only the offending labels
+	// were dropped. Informational only.
+	StrippedLabels int
 }
 
 // ErrFatal is a sentinel meaning "do not retry, terminate the agent".

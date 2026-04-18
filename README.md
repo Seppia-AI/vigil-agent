@@ -1,6 +1,6 @@
 # vigil-agent
 
-The host metrics agent for [Seppia Vigil Vitals](https://seppia.ai/docs/vigil).
+The host metrics agent for [Seppia Vigil Vitals](https://seppia.ai/vigil).
 
 A small static Go binary that scrapes a fixed set of system metrics
 (CPU, memory, swap, disk, network, uptime) and ships them to the Vigil
@@ -113,6 +113,7 @@ vigil-agent run                   # explicit alias of the above (legibility for 
 vigil-agent --version             # print build info
 vigil-agent --check-config        # validate config and exit
 vigil-agent --once                # scrape once, print JSON to stdout, exit (no network)
+vigil-agent --once --send         # scrape once, POST to ingest, print server reply, exit (verify install)
 vigil-agent --dry-run             # daemon, but log batches to stderr instead of POSTing
 vigil-agent --insecure            # DEV ONLY: skip TLS certificate verification
 vigil-agent --log-format=json     # text (default) or json
@@ -121,6 +122,37 @@ vigil-agent --metrics-addr=127.0.0.1:9090   # opt-in /metrics + /healthz endpoin
 vigil-agent --drain-timeout=5s    # max time to flush buffered batches after SIGTERM (0 = drop)
 vigil-agent --no-update-check     # suppress the once-a-day "newer release?" check
 ```
+
+### Verify the install
+
+After running the one-line installer, the recommended smoke test is:
+
+```sh
+sudo -u vigil vigil-agent --once --send
+```
+
+This runs every collector once, POSTs the resulting batch to the
+configured ingest URL, and prints the server's reply on stdout:
+
+```
+POST https://api.seppia.ai/vigil/vitals/<token>  (samples: 142)
+verify OK — server accepted the batch
+  samples_sent:        142
+  samples_accepted:    142
+```
+
+Exit `0` means the agent → server path is fully working — config is
+valid, the token is accepted, the network is reachable, and the server
+stored the samples. Exit `1` means a config-level problem (missing
+token, bad ingest URL, **token revoked**); exit `2` means a transient
+failure (network blip, `5xx`, `429`). The same probe will then start
+showing samples on its detail page in the Vigil dashboard within
+seconds.
+
+`--once --send` is also the right tool to confirm a label / allowlist
+change before letting the daemon run: any `dropped_unsupported`,
+`dropped_cardinality` or `stripped_labels` count > 0 is surfaced in
+the printed summary and as a structured warning on stderr.
 
 ### Update check
 
