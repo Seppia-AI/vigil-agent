@@ -21,10 +21,13 @@ import (
 //     counter that might legitimately stall (idle network, no IO).
 type UptimeCollector struct{}
 
+// NewUptime returns an UptimeCollector ready to scrape uptime.seconds.
 func NewUptime() *UptimeCollector { return &UptimeCollector{} }
 
+// Name implements Collector.
 func (*UptimeCollector) Name() string { return "uptime" }
 
+// Collect implements Collector.
 func (*UptimeCollector) Collect(_ context.Context) ([]Sample, error) {
 	u, err := host.Uptime()
 	if err != nil {

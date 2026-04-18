@@ -31,6 +31,7 @@ type NetCollector struct{}
 // NewNet returns a NetCollector ready to scrape per-interface counters.
 func NewNet() *NetCollector { return &NetCollector{} }
 
+// Name implements Collector.
 func (*NetCollector) Name() string { return "net" }
 
 // skipIface returns true for interface names we don't want to ship
@@ -51,6 +52,7 @@ func skipIface(name string) bool {
 	return false
 }
 
+// Collect implements Collector.
 func (*NetCollector) Collect(_ context.Context) ([]Sample, error) {
 	// `true` = per-interface counters. Without it we'd get a single
 	// summed entry which would be useless for diagnosing "which NIC

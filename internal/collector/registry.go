@@ -46,20 +46,22 @@ func NewRegistry(collectors []Collector, hi HostInfo, labels map[string]string, 
 	return r
 }
 
-// CollectorError pairs an error with the collector that produced it,
-// so the caller can log "[cpu] failed: %v" without losing context. We
-// could just use `fmt.Errorf("%s: %w", name, err)` but having the name
-// in a struct field makes structured logging easier downstream.
-type CollectorError struct {
+// Error pairs an error with the collector that produced it, so the
+// caller can log "[cpu] failed: %v" without losing context. We could
+// just use `fmt.Errorf("%s: %w", name, err)` but having the name in a
+// struct field makes structured logging easier downstream.
+type Error struct {
 	Collector string
 	Err       error
 }
 
-func (e CollectorError) Error() string {
+// Error implements the standard error interface.
+func (e Error) Error() string {
 	return e.Collector + ": " + e.Err.Error()
 }
 
-func (e CollectorError) Unwrap() error { return e.Err }
+// Unwrap exposes the underlying collector error for errors.Is/As.
+func (e Error) Unwrap() error { return e.Err }
 
 // Scrape runs every registered collector once, merges their samples into
 // a Batch stamped with `now`, and returns the batch alongside any
@@ -70,14 +72,14 @@ func (e CollectorError) Unwrap() error { return e.Err }
 // /proc/loadavg in a stripped container errors the cpu collector but
 // the mem/disk/net samples are still good and the agent should still
 // POST them.
-func (r *Registry) Scrape(ctx context.Context, now time.Time) (Batch, []CollectorError) {
+func (r *Registry) Scrape(ctx context.Context, now time.Time) (Batch, []Error) {
 	all := make([]Sample, 0, 64)
-	var errs []CollectorError
+	var errs []Error
 
 	for _, c := range r.collectors {
 		samples, err := c.Collect(ctx)
 		if err != nil {
-			errs = append(errs, CollectorError{Collector: c.Name(), Err: err})
+			errs = append(errs, Error{Collector: c.Name(), Err: err})
 			// Even on error a collector may have returned partial
 			// samples (the disk collector does this when one fs
 			// errors but the rest succeed). Append whatever we got.
@@ -147,7 +149,7 @@ func (r *Registry) applyStaticLabels(samples []Sample) []Sample {
 // FormatErrors returns a human-friendly multiline string summarising the
 // errs slice, or "" when the slice is empty. Used by `--once` and the
 // daemon's startup logger.
-func FormatErrors(errs []CollectorError) string {
+func FormatErrors(errs []Error) string {
 	if len(errs) == 0 {
 		return ""
 	}

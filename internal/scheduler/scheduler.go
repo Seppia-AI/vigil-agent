@@ -13,8 +13,9 @@ import (
 	"github.com/Seppia-AI/vigil-agent/internal/collector"
 )
 
-// Default capacity multiplier for the in-memory buffer: 5× the scrape
-// interval, expressed as a count of batches.
+// DefaultBufferBatches is the default capacity of the in-memory buffer,
+// expressed as a count of batches (5× the scrape interval).
+//
 // In practice that means: at the default 60s scrape, the buffer holds
 // 5 batches = 5 minutes of pending data before we start dropping the
 // oldest. Long enough to weather a brief ingest blip; short enough that
@@ -243,6 +244,12 @@ func (s *Scheduler) Stats() Stats {
 // Draining the buffer with one final flush is the responsibility of the
 // process-lifecycle layer (see runDaemon in cmd/vigil-agent), not this
 // loop's.
+//
+// sendCtx is deliberately rooted on context.Background() so the drain
+// phase outlives the parent context's cancellation (SIGTERM). The cancel
+// is owned by Run() and the deferred cancelSend() guarantees no leak.
+//
+//nolint:contextcheck
 func (s *Scheduler) Run(ctx context.Context) error {
 	s.log.Info("scheduler starting",
 		slog.String("event", "scheduler.start"),
@@ -267,11 +274,10 @@ func (s *Scheduler) Run(ctx context.Context) error {
 	// capture is shorter and version-stable.
 	collectCtx, cancelCollect := context.WithCancel(ctx)
 	defer cancelCollect()
-	// contextcheck: sendCtx is deliberately rooted on context.Background()
-	// rather than ctx — the drain phase must outlive the parent context's
-	// cancellation (SIGTERM) so the buffer can flush. The cancel is owned
-	// by Run() and the deferred cancelSend() guarantees no leak.
-	sendCtx, cancelSend := context.WithCancel(context.Background()) //nolint:contextcheck
+	// sendCtx is rooted on context.Background() so the drain phase outlives
+	// the parent context's cancellation (SIGTERM). See the function-level
+	// linter directive above for the full rationale.
+	sendCtx, cancelSend := context.WithCancel(context.Background())
 	defer cancelSend()
 
 	var (

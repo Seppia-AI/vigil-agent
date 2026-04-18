@@ -37,8 +37,10 @@ import (
 // fs than ship a misleading "host is 200% full" chart.
 type DiskCollector struct{}
 
+// NewDisk returns a DiskCollector ready to scrape per-fs and per-device samples.
 func NewDisk() *DiskCollector { return &DiskCollector{} }
 
+// Name implements Collector.
 func (*DiskCollector) Name() string { return "disk" }
 
 // skipFstypes are filesystems that are ephemeral, virtual, or otherwise
@@ -63,6 +65,7 @@ var skipFstypes = map[string]struct{}{
 	"tracefs":     {},
 }
 
+// Collect implements Collector.
 func (*DiskCollector) Collect(_ context.Context) ([]Sample, error) {
 	out := make([]Sample, 0, 16)
 

@@ -77,7 +77,7 @@ func TestRegistry_Scrape_PartialFailureStillReturnsGoodSamples(t *testing.T) {
 	}
 	// errors.Unwrap should round-trip so callers can use errors.Is/As.
 	if !errors.Is(errs[0], bad.err) {
-		t.Errorf("CollectorError must wrap underlying error")
+		t.Errorf("Error must wrap underlying error")
 	}
 }
 
@@ -148,7 +148,7 @@ func TestFormatErrors_Empty(t *testing.T) {
 }
 
 func TestFormatErrors_PrefixesCollectorName(t *testing.T) {
-	errs := []CollectorError{
+	errs := []Error{
 		{Collector: "cpu", Err: errors.New("loadavg missing")},
 		{Collector: "disk", Err: errors.New("/data unreadable")},
 	}

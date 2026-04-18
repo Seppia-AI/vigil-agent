@@ -19,10 +19,13 @@ import (
 // collector grows two more samples — no API changes needed.
 type SwapCollector struct{}
 
+// NewSwap returns a SwapCollector ready to scrape swap.used.
 func NewSwap() *SwapCollector { return &SwapCollector{} }
 
+// Name implements Collector.
 func (*SwapCollector) Name() string { return "swap" }
 
+// Collect implements Collector.
 func (*SwapCollector) Collect(_ context.Context) ([]Sample, error) {
 	s, err := mem.SwapMemory()
 	if err != nil {

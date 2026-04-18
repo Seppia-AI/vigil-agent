@@ -23,10 +23,13 @@ import (
 // confusion is much rarer with this number.
 type MemCollector struct{}
 
+// NewMem returns a MemCollector ready to scrape virtual-memory gauges.
 func NewMem() *MemCollector { return &MemCollector{} }
 
+// Name implements Collector.
 func (*MemCollector) Name() string { return "mem" }
 
+// Collect implements Collector.
 func (*MemCollector) Collect(_ context.Context) ([]Sample, error) {
 	v, err := mem.VirtualMemory()
 	if err != nil {
