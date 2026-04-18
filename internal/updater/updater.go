@@ -309,7 +309,8 @@ func (u *Updater) fetch(ctx context.Context) (LatestRelease, error) {
 // protection.
 func randomInitialDelay() time.Duration {
 	span := DefaultInitialDelayMax - DefaultInitialDelayMin
-	return DefaultInitialDelayMin + time.Duration(rand.Int64N(int64(span)))
+	// gosec G404: jitter for thundering-herd avoidance, not a security primitive.
+	return DefaultInitialDelayMin + time.Duration(rand.Int64N(int64(span))) //nolint:gosec
 }
 
 func nonEmpty(s, fallback string) string {

@@ -220,8 +220,8 @@ func New(opts Options) *Scheduler {
 		// want a per-scheduler seed so test runs are reproducible
 		// when we pin them; use a non-zero seed derived from start
 		// time to keep production runs unpredictable enough to
-		// break thundering herds.
-		rng: rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 0)),
+		// break thundering herds. gosec G404: jitter, not crypto.
+		rng: rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 0)), //nolint:gosec
 	}
 }
 
@@ -267,7 +267,11 @@ func (s *Scheduler) Run(ctx context.Context) error {
 	// capture is shorter and version-stable.
 	collectCtx, cancelCollect := context.WithCancel(ctx)
 	defer cancelCollect()
-	sendCtx, cancelSend := context.WithCancel(context.Background())
+	// contextcheck: sendCtx is deliberately rooted on context.Background()
+	// rather than ctx — the drain phase must outlive the parent context's
+	// cancellation (SIGTERM) so the buffer can flush. The cancel is owned
+	// by Run() and the deferred cancelSend() guarantees no leak.
+	sendCtx, cancelSend := context.WithCancel(context.Background()) //nolint:contextcheck
 	defer cancelSend()
 
 	var (

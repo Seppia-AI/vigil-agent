@@ -7,10 +7,8 @@
 // for the wire shape). Content-Type is application/json.
 //
 // Response: 200 with JSON body  { received: bool, count: int,
-//
-//	dropped_quota?: int, dropped_unsupported?: int, dropped_cardinality?: int,
-//	stripped_labels?: int }
-//
+//   dropped_quota?: int, dropped_unsupported?: int, dropped_cardinality?: int,
+//   stripped_labels?: int }
 // The agent currently only acts on `dropped_quota`; the other counters
 // are logged at debug level for operator visibility.
 //
@@ -230,7 +228,7 @@ func (h *HTTPSink) Send(ctx context.Context, batch collector.Batch) (scheduler.S
 		// short-circuit the sleep that follows.
 		return scheduler.SendResult{}, fmt.Errorf("POST %s: %w", h.endpoint, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, maxBodyReadBytes))
 

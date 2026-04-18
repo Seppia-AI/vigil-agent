@@ -234,11 +234,11 @@ func TestScheduler_RetryAfterHonorsFloor(t *testing.T) {
 }
 
 type retryAfterSink struct {
-	delay        time.Duration
-	calls        atomic.Uint64
-	successCalls atomic.Uint64
-	firstCallAt  atomic.Int64 // unix nanos
-	secondCallAt atomic.Int64
+	delay         time.Duration
+	calls         atomic.Uint64
+	successCalls  atomic.Uint64
+	firstCallAt   atomic.Int64 // unix nanos
+	secondCallAt  atomic.Int64
 }
 
 func (s *retryAfterSink) Send(_ context.Context, _ collector.Batch) (SendResult, error) {
@@ -303,7 +303,7 @@ func TestScheduler_StatsAccumulate(t *testing.T) {
 	if st.ScrapesOK < 2 {
 		t.Errorf("ScrapesOK=%d want >=2 over 250ms with 30ms interval", st.ScrapesOK)
 	}
-	if uint64(fc.called.Load()) != st.ScrapesOK+st.ScrapesEmpty+st.ScrapesPartial {
+	if fc.called.Load() != st.ScrapesOK+st.ScrapesEmpty+st.ScrapesPartial {
 		t.Errorf("collector called %d times but stats sum to %d",
 			fc.called.Load(), st.ScrapesOK+st.ScrapesEmpty+st.ScrapesPartial)
 	}

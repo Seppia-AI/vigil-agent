@@ -28,6 +28,7 @@ import (
 //     via the parent interface.
 type NetCollector struct{}
 
+// NewNet returns a NetCollector ready to scrape per-interface counters.
 func NewNet() *NetCollector { return &NetCollector{} }
 
 func (*NetCollector) Name() string { return "net" }

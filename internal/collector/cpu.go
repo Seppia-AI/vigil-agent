@@ -8,7 +8,7 @@ import (
 	"github.com/shirou/gopsutil/v4/load"
 )
 
-// CPU collector emits:
+// CPUCollector emits:
 //
 //	cpu.usage             aggregated busy% across all cores      gauge 0–100
 //	cpu.usage.<N>         per-core busy% (label core="0"..."N-1") gauge 0–100

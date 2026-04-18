@@ -17,12 +17,11 @@
 //     each other.
 //
 //   - Counters (net.*_bytes, disk.*_bytes, etc.) are sent RAW. We do NOT
-//     compute rate agent-side because:
-//       * Restarting the agent would lose the previous reading and the
-//         first sample after restart would be bogus.
-//       * The server can compute derivative() at query time across any
-//         window the user picks, which the agent can't predict.
-//       * It matches what Prometheus and OTLP do — minimum surprise.
+//     compute rate agent-side because: restarting the agent would lose
+//     the previous reading and the first sample after restart would be
+//     bogus; the server can compute derivative() at query time across any
+//     window the user picks, which the agent can't predict; and it
+//     matches what Prometheus and OTLP do — minimum surprise.
 //
 //   - Collector errors are NEVER fatal to a scrape. A noisy filesystem or
 //     a missing /proc entry should not stop us shipping the metrics that
@@ -37,8 +36,8 @@ import (
 	"time"
 )
 
-// Sample is one metric data point. The on-wire JSON shape is:
-//   { "name": "...", "value": ..., "labels": { ... } }.
+// Sample is one metric data point. The on-wire JSON shape is
+// `{ "name": "...", "value": ..., "labels": { ... } }`.
 //
 // `omitempty` on Labels keeps the wire size down for the (common) case
 // of single-value metrics like uptime.seconds.

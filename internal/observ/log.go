@@ -25,6 +25,7 @@ import (
 // readable in a terminal.
 type LogFormat string
 
+// LogFormat values accepted by ParseLogFormat and the --log-format flag.
 const (
 	LogFormatText LogFormat = "text"
 	LogFormatJSON LogFormat = "json"

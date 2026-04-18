@@ -8,16 +8,18 @@ import (
 	"github.com/shirou/gopsutil/v4/disk"
 )
 
-// DiskCollector emits two families of samples:
+// DiskCollector emits two families of samples.
 //
-//   Per-filesystem usage gauges, labelled with mountpoint + device:
-//	  disk.used   {mount="/", device="/dev/sda1"}
-//	  disk.total  {mount="/", device="/dev/sda1"}
+// Per-filesystem usage gauges, labelled with mountpoint + device:
 //
-//   Per-device cumulative IO counters (bytes since boot), labelled with
-//   the device name:
-//	  disk.read_bytes   {device="sda"}
-//	  disk.write_bytes  {device="sda"}
+//	disk.used   {mount="/", device="/dev/sda1"}
+//	disk.total  {mount="/", device="/dev/sda1"}
+//
+// Per-device cumulative IO counters (bytes since boot), labelled with
+// the device name:
+//
+//	disk.read_bytes   {device="sda"}
+//	disk.write_bytes  {device="sda"}
 //
 // The IO counters are sent RAW (monotonically increasing); rate is
 // computed server-side at chart time. See package doc-comment in
@@ -42,23 +44,23 @@ func (*DiskCollector) Name() string { return "disk" }
 // skipFstypes are filesystems that are ephemeral, virtual, or otherwise
 // not interesting for capacity planning. lowercase-matched.
 var skipFstypes = map[string]struct{}{
-	"tmpfs":      {},
-	"devtmpfs":   {},
-	"devfs":      {},
-	"proc":       {},
-	"sysfs":      {},
-	"cgroup":     {},
-	"cgroup2":    {},
-	"overlay":    {},
-	"squashfs":   {},
-	"autofs":     {},
+	"tmpfs":       {},
+	"devtmpfs":    {},
+	"devfs":       {},
+	"proc":        {},
+	"sysfs":       {},
+	"cgroup":      {},
+	"cgroup2":     {},
+	"overlay":     {},
+	"squashfs":    {},
+	"autofs":      {},
 	"binfmt_misc": {},
-	"debugfs":    {},
-	"mqueue":     {},
-	"hugetlbfs":  {},
-	"pstore":     {},
-	"securityfs": {},
-	"tracefs":    {},
+	"debugfs":     {},
+	"mqueue":      {},
+	"hugetlbfs":   {},
+	"pstore":      {},
+	"securityfs":  {},
+	"tracefs":     {},
 }
 
 func (*DiskCollector) Collect(_ context.Context) ([]Sample, error) {

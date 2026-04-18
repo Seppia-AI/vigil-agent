@@ -158,7 +158,10 @@ func resolveConfigPath(arg string) (path string, explicit bool) {
 // return distinguishes "not on disk" (acceptable for the default path)
 // from "exists but unreadable / unparseable" (always an error).
 func readYAMLFile(path string) (Config, bool, error) {
-	raw, err := os.ReadFile(path)
+	// gosec G304: the path is the operator-supplied config file location
+	// (--config flag or DefaultConfigPath). Reading it is the entire
+	// purpose of this function.
+	raw, err := os.ReadFile(path) //nolint:gosec
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		return Config{}, false, nil

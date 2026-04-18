@@ -88,7 +88,7 @@ func TestCheckOnce_LogsUpdateAvailableThenSuppresses(t *testing.T) {
 	t.Parallel()
 
 	var hits int32
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		atomic.AddInt32(&hits, 1)
 		mustJSON(t, w, LatestRelease{
 			Version:     "v0.1.3",
