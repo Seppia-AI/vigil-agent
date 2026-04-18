@@ -41,6 +41,14 @@ linters:
     - sqlclosecheck  # database/sql Close()
 
 linters-settings:
+  errcheck:
+    # Output writes to stderr/stdout (and a handful of other "always-best-effort"
+    # writers) almost never have an actionable error path. Silencing these here
+    # avoids littering the codebase with `_, _ =` everywhere.
+    exclude-functions:
+      - fmt.Fprint
+      - fmt.Fprintf
+      - fmt.Fprintln
   gosec:
     excludes:
       # G104: "errors unhandled" — duplicates errcheck and is noisier.
@@ -76,3 +84,4 @@ issues:
         - errcheck
         - gosec
         - prealloc
+        - noctx

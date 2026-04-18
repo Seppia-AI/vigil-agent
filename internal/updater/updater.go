@@ -283,7 +283,7 @@ func (u *Updater) fetch(ctx context.Context) (LatestRelease, error) {
 	if err != nil {
 		return LatestRelease{}, fmt.Errorf("http: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		// Read+drop a small portion of the body so connection reuse

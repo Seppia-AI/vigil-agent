@@ -26,10 +26,10 @@ type HostInfo struct {
 // CollectHostInfo gathers the static-ish host metadata. Order of
 // preference for hostname is:
 //
-//   1. gopsutil host.Info().Hostname (uses the kernel's gethostname() on
-//      Linux, sysctl on macOS — same answer in 99% of cases).
-//   2. os.Hostname() — pure Go fallback for the (rare) case gopsutil
-//      can't read /proc or sysctl, e.g. in a stripped-down container.
+//  1. gopsutil host.Info().Hostname (uses the kernel's gethostname() on
+//     Linux, sysctl on macOS — same answer in 99% of cases).
+//  2. os.Hostname() — pure Go fallback for the (rare) case gopsutil
+//     can't read /proc or sysctl, e.g. in a stripped-down container.
 //
 // Anything we can't determine is left blank; the ingest endpoint
 // tolerates missing fields.

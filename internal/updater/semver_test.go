@@ -6,12 +6,12 @@ func TestParseSemver(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		in           string
-		wantOK       bool
-		wantMajor    int
-		wantMinor    int
-		wantPatch    int
-		wantPre      string
+		in        string
+		wantOK    bool
+		wantMajor int
+		wantMinor int
+		wantPatch int
+		wantPre   string
 	}{
 		{"v0.1.0", true, 0, 1, 0, ""},
 		{"0.1.0", true, 0, 1, 0, ""},

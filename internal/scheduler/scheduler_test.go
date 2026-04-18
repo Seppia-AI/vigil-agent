@@ -234,11 +234,11 @@ func TestScheduler_RetryAfterHonorsFloor(t *testing.T) {
 }
 
 type retryAfterSink struct {
-	delay         time.Duration
-	calls         atomic.Uint64
-	successCalls  atomic.Uint64
-	firstCallAt   atomic.Int64 // unix nanos
-	secondCallAt  atomic.Int64
+	delay        time.Duration
+	calls        atomic.Uint64
+	successCalls atomic.Uint64
+	firstCallAt  atomic.Int64 // unix nanos
+	secondCallAt atomic.Int64
 }
 
 func (s *retryAfterSink) Send(_ context.Context, _ collector.Batch) (SendResult, error) {

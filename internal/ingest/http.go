@@ -7,8 +7,10 @@
 // for the wire shape). Content-Type is application/json.
 //
 // Response: 200 with JSON body  { received: bool, count: int,
-//   dropped_quota?: int, dropped_unsupported?: int, dropped_cardinality?: int,
-//   stripped_labels?: int }
+//
+//	dropped_quota?: int, dropped_unsupported?: int, dropped_cardinality?: int,
+//	stripped_labels?: int }
+//
 // The agent currently only acts on `dropped_quota`; the other counters
 // are logged at debug level for operator visibility.
 //

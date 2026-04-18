@@ -14,11 +14,11 @@ import (
 // Exposing this as a separate metric (rather than computing
 // `time.Since(BootTime)` client-side) is useful for two reasons:
 //
-//   1. The chart can clearly show reboots as drops to ~0 — we get
-//      "host restarted" detection without any extra signalling.
-//   2. The number is monotonic and bounded — handy as a "is the agent
-//      reaching the host at all?" canary that's independent of any
-//      counter that might legitimately stall (idle network, no IO).
+//  1. The chart can clearly show reboots as drops to ~0 — we get
+//     "host restarted" detection without any extra signalling.
+//  2. The number is monotonic and bounded — handy as a "is the agent
+//     reaching the host at all?" canary that's independent of any
+//     counter that might legitimately stall (idle network, no IO).
 type UptimeCollector struct{}
 
 func NewUptime() *UptimeCollector { return &UptimeCollector{} }
