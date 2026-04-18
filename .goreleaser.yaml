@@ -1,0 +1,170 @@
+# vigil-agent release pipeline.
+#
+# Run locally:
+#   make release-snapshot     # build everything into ./dist, no upload, no signing
+#   make release-check        # `goreleaser check` — lint this file
+#
+# In CI: .github/workflows/release.yml runs `goreleaser release` on every
+# git tag matching `v*`.
+#
+# Not yet shipped:
+#   - docker images (need ghcr.io credentials + distroless base decision)
+#   - homebrew tap (need a public seppia/homebrew-tap repo)
+#   - macOS code signing & notarization (needs Apple Dev cert + AC_PASSWORD)
+#   - cosign signatures (needs OIDC issuer setup in CI)
+#   - windows/* — not currently in the platform matrix (see Makefile PLATFORMS)
+version: 2
+
+project_name: vigil-agent
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod download
+
+builds:
+  - id: vigil-agent
+    main: ./cmd/vigil-agent
+    binary: vigil-agent
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/Seppia-AI/vigil-agent/internal/version.Version={{.Version}}
+      - -X github.com/Seppia-AI/vigil-agent/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/Seppia-AI/vigil-agent/internal/version.Date={{.Date}}
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: tarball
+    # vigil-agent_0.1.0_linux_amd64.tar.gz
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    formats:
+      - tar.gz
+    files:
+      - README.md
+      - LICENSE
+      - vigil.example.yml
+      - src: packaging/systemd/vigil-agent.service
+        dst: systemd/vigil-agent.service
+        info:
+          mode: 0644
+
+checksum:
+  name_template: SHA256SUMS
+  algorithm: sha256
+
+snapshot:
+  # `make release-snapshot` produces e.g. 0.0.0-snapshot-abc1234
+  version_template: "{{ incpatch .Version }}-snapshot-{{ .ShortCommit }}"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^chore:"
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "Merge pull request"
+      - "Merge branch"
+  groups:
+    - title: Features
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 0
+    - title: Bug fixes
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 1
+    - title: Other
+      order: 999
+
+nfpms:
+  - id: vigil-agent
+    package_name: vigil-agent
+    file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    vendor: Seppia AI
+    homepage: https://seppia.ai/vigil
+    maintainer: Seppia AI <support@seppia.ai>
+    description: |-
+      Host metrics agent for Seppia Vigil Vitals.
+      A small static Go binary that scrapes CPU, memory, swap, disk, network,
+      and uptime from the host and ships them to the Vigil ingest endpoint.
+      One per host. No JVM, no Python, no agent-of-the-agent.
+    license: Apache-2.0
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+    section: net
+    priority: optional
+    # Recommend (not require) systemd; package still installs on non-systemd
+    # boxes — the operator just won't get the service auto-wired.
+    recommends:
+      - systemd
+    contents:
+      - src: packaging/systemd/vigil-agent.service
+        dst: /lib/systemd/system/vigil-agent.service
+        file_info:
+          mode: 0644
+      - src: vigil.example.yml
+        dst: /etc/seppia/vigil.yml.example
+        file_info:
+          mode: 0644
+      - src: README.md
+        dst: /usr/share/doc/vigil-agent/README.md
+        file_info:
+          mode: 0644
+      - src: LICENSE
+        dst: /usr/share/doc/vigil-agent/LICENSE
+        file_info:
+          mode: 0644
+    scripts:
+      postinstall: packaging/scripts/postinstall.sh
+      preremove: packaging/scripts/preremove.sh
+      postremove: packaging/scripts/postremove.sh
+    rpm:
+      group: Applications/System
+      signature:
+        # Unsigned RPM — fine for a public download but flagged by
+        # `dnf --enablerepo`. Signing isn't wired up yet.
+        key_file: ""
+    deb:
+      lintian_overrides:
+        # nfpm does not ship a debian/changelog file; we use GitHub Releases
+        # for the changelog instead, which lintian doesn't know about.
+        - no-changelog
+        - statically-linked-binary
+
+release:
+  github:
+    owner: Seppia-AI
+    name: vigil-agent
+  draft: true
+  prerelease: auto
+  name_template: "v{{ .Version }}"
+  header: |
+    ## vigil-agent {{ .Tag }}
+
+    Host metrics agent for [Seppia Vigil Vitals](https://seppia.ai/docs/vigil).
+
+    Install on Linux/macOS via the one-line installer (preferred — see the
+    [agent docs](https://seppia.ai/docs/vigil/agent)) or download the
+    matching tarball / `.deb` / `.rpm` below and verify against
+    `SHA256SUMS`.
+  footer: |
+    ---
+    Verifying a download:
+
+    ```sh
+    sha256sum -c SHA256SUMS --ignore-missing
+    ```

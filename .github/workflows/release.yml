@@ -1,0 +1,64 @@
+# Release pipeline for vigil-agent.
+#
+# Trigger: a pushed tag matching `v*` (e.g. `v0.1.0`, `v0.1.0-rc.1`).
+#
+# What it does:
+#   - Builds linux/{amd64,arm64} and darwin/{amd64,arm64} static binaries
+#     via goreleaser (.goreleaser.yaml is the source of truth, NOT this file)
+#   - Produces .deb + .rpm packages via nfpm
+#   - Generates SHA256SUMS for every artefact
+#   - Uploads everything as a GitHub Release (DRAFT — a maintainer must
+#     review and publish each release manually; flip `draft: true` → `false`
+#     in .goreleaser.yaml to switch to auto-publish)
+#
+# Manual snapshot dry-run from a maintainer's box:
+#   make release-snapshot
+#
+# Not yet wired up:
+#   - cosign signing (needs id-token: write + cosign install step)
+#   - docker push to ghcr.io (needs registry login + image config)
+#   - homebrew tap publishing (needs cross-repo PAT)
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  # `contents: write` is what gives goreleaser permission to create the
+  # GitHub Release and upload assets. Everything else stays read-only.
+  contents: write
+
+env:
+  GO_VERSION: "1.23"
+  GORELEASER_VERSION: "~> v2"
+
+jobs:
+  goreleaser:
+    name: GoReleaser
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # goreleaser needs the full history + tags to compute the
+          # changelog and version metadata.
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: ${{ env.GORELEASER_VERSION }}
+          args: release --clean
+        env:
+          # Auto-provided by GitHub. goreleaser uses it to create the
+          # Release object and upload the assets.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

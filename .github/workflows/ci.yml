@@ -1,0 +1,83 @@
+# CI for vigil-agent.
+#
+# Runs on every push and pull request. Three jobs:
+#   - lint:  golangci-lint on the host platform
+#   - test:  unit tests with race detector + coverage upload
+#   - build: cross-build the supported platform matrix to make sure no PR
+#            breaks a target we ship binaries for
+#
+# Release / artefact publishing lives in a separate workflow driven by
+# goreleaser (.github/workflows/release.yml).
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.23"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.61
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Verify modules
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+      - name: Test
+        run: make cover
+
+  build:
+    name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Build
+        env:
+          GOOS:   ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p bin
+          CGO_ENABLED=0 go build -trimpath -o bin/vigil-agent-${GOOS}-${GOARCH} ./cmd/vigil-agent
+          file bin/vigil-agent-${GOOS}-${GOARCH}

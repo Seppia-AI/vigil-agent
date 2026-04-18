@@ -1,0 +1,93 @@
+# vigil-agent example configuration.
+#
+# Copy this file to /etc/seppia/vigil.yml and edit. Every field can also
+# be set via environment variables (see README.md → "Configuration") —
+# env vars override what's in this file.
+#
+# Validate with:
+#   vigil-agent --check-config
+# or, if this file is somewhere non-standard:
+#   vigil-agent --check-config --config /path/to/vigil.yml
+
+# ── Required ─────────────────────────────────────────────────────────────────
+
+# Per-probe ingest token, copied from the Vigil dashboard
+# (Vitals → <probe> → Install snippet). Treat this as a secret —
+# anyone with the token can write metrics into your probe.
+#
+# Env override: VIGIL_TOKEN
+token: "REPLACE_ME"
+
+# ── Optional ─────────────────────────────────────────────────────────────────
+
+# Vigil API base URL. The agent appends "/vigil/vitals/<token>".
+# Override for self-hosted / staging environments.
+#
+# Env override: VIGIL_INGEST_URL
+# Default: https://api.seppia.ai
+# ingest_url: https://api.seppia.ai
+
+# How often (in seconds) the agent collects + sends a batch of metrics.
+# The server may clamp this to a per-account minimum on first POST and the
+# agent will respect that clamp for the rest of the process lifetime.
+# Range: 1–3600. Default: 60.
+#
+# Env override: VIGIL_SCRAPE_INTERVAL_S
+# Default: 60
+# scrape_interval_s: 60
+
+# Static labels merged into every sample this agent emits. Useful for
+# `env=prod`, `region=eu-west-1`, `team=platform`, etc.
+#
+# Constraints:
+#   - max 8 keys (server allows 16 total per sample; the rest is
+#     reserved for collector-emitted labels like `device=sda1`)
+#   - keys must match [a-zA-Z_][a-zA-Z0-9_]*
+#   - values capped at 256 bytes
+#
+# Env override: VIGIL_LABELS="env=prod,region=eu-west-1"
+# labels:
+#   env: prod
+#   region: eu-west-1
+
+# Optional client-side filter on the metric names this agent emits.
+# Empty / unset = ship everything the collectors produce. The server
+# also filters; this knob exists for noisy hosts where you want to
+# avoid even building the rejected samples.
+#
+# Env override: VIGIL_METRICS_ALLOWLIST="cpu.usage,mem.used"
+# metrics_allowlist:
+#   - cpu.usage
+#   - mem.used
+#   - disk.used
+
+# Logging.
+#
+# log_level:  one of debug | info | warn | error
+# log_format: one of text | json   ("json" is recommended when shipping
+#             agent logs to a structured aggregator)
+#
+# Env overrides: VIGIL_LOG_LEVEL, VIGIL_LOG_FORMAT
+# Defaults: info / text
+# log_level:  info
+# log_format: text
+
+# Update check.
+#
+# Once a day the agent GETs <ingest_url>/vigil/agent/latest_version and, if
+# a newer release is available, logs a single "event=update.available" line
+# (running_version, latest_version, released_at, download_url). It NEVER
+# auto-downloads or restarts — the operator decides when to upgrade.
+#
+# Set `disable_update_check: true` in air-gapped fleets, or when a
+# configuration management system pins agent versions. The CLI flag
+# `--no-update-check` overrides this field at runtime.
+#
+# `update_check_url` lets self-hosters point at a private mirror. Empty
+# (the default) means "derive from ingest_url".
+#
+# Env overrides: VIGIL_DISABLE_UPDATE_CHECK (1/true/yes/on),
+#                VIGIL_UPDATE_CHECK_URL
+# Defaults: enabled, URL derived from ingest_url
+# disable_update_check: false
+# update_check_url: ""

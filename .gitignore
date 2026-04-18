@@ -1,0 +1,25 @@
+# Build artefacts
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+*.prof
+
+# Local config / secrets
+*.local.yml
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*~
+
+# Coverage
+coverage.txt
+coverage.html

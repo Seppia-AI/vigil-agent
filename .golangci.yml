@@ -1,0 +1,78 @@
+# golangci-lint configuration.
+#
+# Linters are kept tight on purpose — this is an agent that runs as root on
+# customer machines, so anything that catches a panic, leaked goroutine,
+# unchecked error, or footgun is worth the noise. Add lints when CI catches
+# a class of bug we've seen, drop them only with a code comment explaining why.
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  disable-all: true
+  enable:
+    # Default-on staples
+    - errcheck       # unchecked errors
+    - govet          # standard vet checks
+    - ineffassign    # unused assignments
+    - staticcheck    # very large set of correctness checks
+    - unused         # dead code
+    - gosimple       # simplifications
+    - typecheck      # type errors
+
+    # Style / consistency
+    - gofmt
+    - goimports
+    - misspell
+    - revive         # configurable golint replacement
+    - unconvert      # unnecessary type conversions
+    - whitespace
+
+    # Bug-finders worth their weight on a daemon
+    - bodyclose      # http.Body left unclosed
+    - contextcheck   # context.Context plumbing
+    - errorlint      # %w / errors.Is / errors.As correctness
+    - gosec          # security scanner (tuned below)
+    - nilerr         # `return nil` after non-nil err
+    - noctx          # http requests without context
+    - prealloc       # slice make() preallocation hints
+    - rowserrcheck   # database/sql Rows.Err() checks
+    - sqlclosecheck  # database/sql Close()
+
+linters-settings:
+  gosec:
+    excludes:
+      # G104: "errors unhandled" — duplicates errcheck and is noisier.
+      - G104
+  revive:
+    rules:
+      - name: var-naming
+      - name: package-comments
+      - name: exported
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: if-return
+      - name: increment-decrement
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+      - name: empty-block
+      - name: superfluous-else
+      - name: unused-parameter
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    # Test files are allowed to be a bit noisier.
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+        - prealloc
