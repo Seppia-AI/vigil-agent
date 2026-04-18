@@ -93,7 +93,7 @@ nfpms:
     package_name: vigil-agent
     file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     vendor: Seppia AI
-    homepage: https://seppia.ai/vigil
+    homepage: https://seppia.ai/docs/vigil
     maintainer: Seppia AI <support@seppia.ai>
     description: |-
       Host metrics agent for Seppia Vigil Vitals.

@@ -1,6 +1,6 @@
 # vigil-agent
 
-The host metrics agent for [Seppia Vigil Vitals](https://seppia.ai/vigil).
+The host metrics agent for [Seppia Vigil Vitals](https://seppia.ai/docs/vigil).
 
 A small static Go binary that scrapes a fixed set of system metrics
 (CPU, memory, swap, disk, network, uptime) and ships them to the Vigil
