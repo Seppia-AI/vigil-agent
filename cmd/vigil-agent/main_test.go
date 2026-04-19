@@ -140,6 +140,51 @@ func TestRun_RunSubcommandAcceptedAsAlias(t *testing.T) {
 	}
 }
 
+func TestRun_SystemdExecStartShape(t *testing.T) {
+	// Regression test for the v0.2.0 production incident where the
+	// systemd unit shipped with `ExecStart=… run --config /etc/seppia/vigil.yml`.
+	// Go's flag package stops at the first non-flag arg, so `run`
+	// caused `--config /etc/seppia/vigil.yml` to be parsed as
+	// positional args and the daemon refused to start with
+	// `unexpected argument(s): [run --config /etc/seppia/vigil.yml]`.
+	//
+	// Anything that ships in the systemd unit MUST exercise this
+	// path. We use --check-config (no daemon, no network, but the
+	// same flag-parsing front-door as the daemon) so the test is
+	// hermetic and fast.
+	withCleanEnv(t)
+	path := writeYAML(t, `
+token: test-token-1234
+ingest_url: https://api.seppia.ai
+scrape_interval_s: 60
+`)
+
+	t.Run("canonical_order_works", func(t *testing.T) {
+		// This is the SHAPE the systemd unit and the install.sh
+		// patched ExecStart use today: flags first, `run` last.
+		// (--check-config short-circuits before the daemon spins
+		// up, but it goes through the SAME argv parsing.)
+		var stdout, stderr bytes.Buffer
+		code := run([]string{"--check-config", "--config", path, "run"}, &stdout, &stderr)
+		if code != exitcode.OK {
+			t.Fatalf("canonical ExecStart shape failed: exit=%d stderr=%q", code, stderr.String())
+		}
+	})
+
+	t.Run("legacy_broken_order_rejected", func(t *testing.T) {
+		// And THIS is the shape that broke production. We assert
+		// it still fails loudly (exit=Usage with a clear error)
+		// so that if anyone ever "fixes" the parser to be
+		// permissive, this test screams.
+		var stdout, stderr bytes.Buffer
+		code := run([]string{"run", "--check-config", "--config", path}, &stdout, &stderr)
+		if code != exitcode.Usage {
+			t.Errorf("legacy broken order should fail with Usage; got exit=%d stderr=%q",
+				code, stderr.String())
+		}
+	})
+}
+
 func TestRun_RejectsUnknownPositional(t *testing.T) {
 	// Anything other than `run` as the positional arg is a typo
 	// (e.g. someone meant `--once` and wrote `once`). Refuse it

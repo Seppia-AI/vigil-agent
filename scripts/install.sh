@@ -415,7 +415,7 @@ do_install() {
     if [ "${NO_SYSTEMD}" -eq 1 ]; then
         info "skipping systemd setup (--no-systemd or unavailable)"
         if [ "${OS}" = "darwin" ]; then
-            dim "   start manually with: ${bin_dst} run --config ${CONFIG_PATH}"
+            dim "   start manually with: ${bin_dst} --config ${CONFIG_PATH} run"
             dim "   (launchd plist integration not yet included)"
         fi
     else
@@ -425,10 +425,15 @@ do_install() {
         # if the file ever drifts and the regex doesn't match, the unit
         # still installs in its packaged form which keys off /usr/bin —
         # so we error loudly instead of silently shipping a broken unit.
+        #
+        # Flag order matters: vigil-agent uses Go's `flag` package which
+        # stops at the first non-flag arg, so `--config` MUST come before
+        # the `run` positional. See packaging/systemd/vigil-agent.service
+        # for the canonical form.
         if [ "${DRY_RUN}" -eq 0 ]; then
-            sed "s|^ExecStart=.*|ExecStart=${bin_dst} run --config ${CONFIG_PATH}|" \
+            sed "s|^ExecStart=.*|ExecStart=${bin_dst} --config ${CONFIG_PATH} run|" \
                 "${src_unit}" > "${tmpdir}/vigil-agent.service"
-            grep -q "^ExecStart=${bin_dst} run --config ${CONFIG_PATH}\$" \
+            grep -q "^ExecStart=${bin_dst} --config ${CONFIG_PATH} run\$" \
                 "${tmpdir}/vigil-agent.service" \
                 || die "failed to patch ExecStart in unit file"
             mv "${tmpdir}/vigil-agent.service" "${SYSTEMD_UNIT_PATH}"

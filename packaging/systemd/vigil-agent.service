@@ -10,8 +10,12 @@ User=vigil
 Group=vigil
 
 # `run` is an explicit alias of the bare daemon invocation; it makes
-# the `ps` line and the journal greppable.
-ExecStart=/usr/bin/vigil-agent run --config /etc/seppia/vigil.yml
+# the `ps` line and the journal greppable. NOTE: vigil-agent uses Go's
+# `flag` package, which stops parsing flags at the first non-flag
+# argument — so `run` MUST come AFTER `--config`, not before, or
+# `--config` is parsed as a positional and the daemon refuses to start
+# with `unexpected argument(s)`.
+ExecStart=/usr/bin/vigil-agent --config /etc/seppia/vigil.yml run
 
 # Lifecycle. Pairs with vigil-agent's own --drain-timeout (default 5s),
 # documented in README.md → "Process lifecycle".
